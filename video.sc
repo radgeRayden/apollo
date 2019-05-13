@@ -31,12 +31,8 @@ out out-color : vec4
 
 fn frag-shader ()
     let texel = (texture screen-buffer screen-uv.in)
-    out-color = (vec4 texel.r texel.r texel.r 1.0)
-        # vec2
-        #     color-index % PALETTE-WIDTH
-        #     0
-            #color-index // PALETTE-WIDTH
-    # out-color = (texelFetch palette (ivec2 0 0) 0) #FIXME: lod should be optional
+    let pcolor = (texelFetch palette (ivec2 0 0) 0)
+    out-color = (vec4 texel.r pcolor.g pcolor.b 1.0)
 
 +fragment-shader-source+ := (compile-glsl 'fragment (typify frag-shader))
 print +fragment-shader-source+
@@ -61,8 +57,10 @@ global *rnd-well* : rnd.rnd_well_t
 
 #VRAM state globals
 global *screen-buffer* : (mutable (pointer i8))
+global *palette-buffer* : (mutable (pointer i8))
 
 global *screen-texture* : sokol.sg_image
+global *palette-texture* : sokol.sg_image
 global *gfx-bindings* : sokol.sg_bindings
 global *gfx-pipeline* : sokol.sg_pipeline
 
@@ -71,6 +69,7 @@ global *gfx-pipeline* : sokol.sg_pipeline
 let +screen-width+ = 320
 let +screen-height+ = 240
 let +screen-buffer-size+ = (+screen-width+ * +screen-height+ // 2)
+let +palette-buffer-size+ = (+palette-width+ * +palette-height+ * (sizeof i32))
 
 enum memfill
     incremental
@@ -141,6 +140,10 @@ fn init ()
         local sg_shader_image_desc
             name = "screen_buffer"
             type = SG_IMAGETYPE_2D
+    (shader-desc.fs.images @ 1) =
+        local sg_shader_image_desc
+            name = "palette"
+            type = SG_IMAGETYPE_2D
 
     local console-screen-shader = (sg_make_shader &shader-desc)
 
@@ -180,8 +183,8 @@ fn init ()
 
     *gfx-pipeline* = (sg_make_pipeline  &pip-desc)
 
-    #TODO: change into union later
     *screen-buffer* = (malloc-array i8 +screen-buffer-size+) 
+    *palette-buffer* = (malloc-array i8 +palette-buffer-size+)
 
     *screen-texture* =
         sg_make_image
@@ -199,16 +202,41 @@ fn init ()
                     wrap_w = SG_WRAP_REPEAT
     
     *gfx-bindings*.fs_images @ 0 = *screen-texture*
+
+    *palette-texture* =
+        sg_make_image
+            &
+                local sg_image_desc
+                    type = SG_IMAGETYPE_2D
+                    width = +palette-width+
+                    height = +palette-height+
+                    usage = SG_USAGE_STREAM
+                    pixel_format = SG_PIXELFORMAT_RGBA8
+                    min_filter = SG_FILTER_NEAREST
+                    mag_filter = SG_FILTER_NEAREST
+                    wrap_u = SG_WRAP_REPEAT
+                    wrap_v = SG_WRAP_REPEAT
+                    wrap_w = SG_WRAP_REPEAT
+    
+    *gfx-bindings*.fs_images @ 1 = *palette-texture*
+
+    fill-buffer  *palette-buffer*  +palette-buffer-size+  memfill.random
     ;
 
 fn draw-screen ()
     fill-buffer *screen-buffer* +screen-buffer-size+ memfill.random-4bit
+    fill-buffer  *palette-buffer*  +palette-buffer-size+  memfill.random
 
-    local image-content : sokol.sg_image_content
-    (@ image-content.subimage 0 0) =
+    local screen-content : sokol.sg_image_content
+    (@ screen-content.subimage 0 0) =
         local sokol.sg_subimage_content
             ptr = (bitcast (deref *screen-buffer*) voidstar)
             size = +screen-buffer-size+
+    local palette-content : sokol.sg_image_content
+    (@ palette-content.subimage 0 0) =
+        local sokol.sg_subimage_content
+            ptr = (bitcast (deref *palette-buffer*) voidstar)
+            size = +palette-buffer-size+
 
     local pass-action : sokol.sg_pass_action
         depth =
@@ -222,7 +250,8 @@ fn draw-screen ()
             action = sokol.SG_ACTION_CLEAR
             val = (arrayof f32 0.14 0.14 0.14 1.0)
 
-    sokol.sg_update_image  *screen-texture*  &image-content
+    sokol.sg_update_image  *screen-texture*  &screen-content
+    sokol.sg_update_image  *palette-texture*  &palette-content
     sokol.sg_begin_default_pass  &pass-action  (sokol.sapp_width)  (sokol.sapp_height)
     sokol.sg_apply_pipeline  *gfx-pipeline* 
     sokol.sg_apply_bindings  &*gfx-bindings*
@@ -232,7 +261,9 @@ fn draw-screen ()
 
 fn cleanup ()
     free *screen-buffer*
+    free *palette-buffer*
     sokol.sg_destroy_image *screen-texture*
+    sokol.sg_destroy_image *palette-texture*
     ;
 
 do
