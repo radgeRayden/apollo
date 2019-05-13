@@ -3,17 +3,15 @@
         320x240 palletized pixel data
         64-color (subject to change) pallete in RGB 24-bit format
 
-# global +vertex-shader-source+ : (pointer i8)
-# global +fragment-shader-source+ : (pointer i8)
-
 # I wanted the shader code to be on its own scope, but then the private global problem comes back.
 using import glsl
 using import glm
 
-print "we got here"
 #shader constants
 let +palette-width+ = 4 
 let +palette-height+ = 4
+let +screen-width+ = 320
+let +screen-height+ = 240
 
 in position : vec4
 in uv : vec2
@@ -30,9 +28,17 @@ uniform palette : sampler2D
 out out-color : vec4
 
 fn frag-shader ()
-    let texel = (texture screen-buffer screen-uv.in)
-    let pcolor = (texelFetch palette (ivec2 0 0) 0)
-    out-color = (vec4 texel.r pcolor.g pcolor.b 1.0)
+    local color-index : i32
+
+    let screen-column = ((screen-uv.in.x * +screen-width+) as i32)
+
+    if ((screen-column % 2) == 0)
+        color-index = (((. ((texture screen-buffer screen-uv.in) * 255) r) as i32) & 0x0f) # FIXME: ask ritter why the outtermost parens is needed
+    else
+        color-index = (((. ((texture screen-buffer screen-uv.in) * 255) r) as i32) >> 4)
+    
+    let pcolor = (texelFetch palette (ivec2 (color-index % +palette-width+) (color-index // +palette-width+)) 0)
+    out-color = (vec4 pcolor.rgb 1.0)
 
 +fragment-shader-source+ := (compile-glsl 'fragment (typify frag-shader))
 print +fragment-shader-source+
@@ -66,8 +72,6 @@ global *gfx-pipeline* : sokol.sg_pipeline
 
 # TODO: change into own module so every module uses the same constants
 # vram constants
-let +screen-width+ = 320
-let +screen-height+ = 240
 let +screen-buffer-size+ = (+screen-width+ * +screen-height+ // 2)
 let +palette-buffer-size+ = (+palette-width+ * +palette-height+ * (sizeof i32))
 
