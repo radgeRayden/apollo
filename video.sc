@@ -71,15 +71,33 @@ global *gfx-pipeline* : sokol.sg_pipeline
 let +screen-width+ = 320
 let +screen-height+ = 240
 let +screen-buffer-size+ = (+screen-width+ * +screen-height+ // 2)
-print +screen-buffer-size+
-fn fill-video-memory (mem)
-    for i in (range +screen-buffer-size+) 
-        mem @ i = ((rnd.rnd_well_next &*rnd-well*) % 255) as i8
+
+enum memfill
+    incremental
+    random
+    incremental-4bit
+    random-4bit
+    zero
+
+fn fill-buffer (mem size method)
+    switch method
+    case memfill.incremental
+        for i in (range size)
+            mem @ i = (i % 256) as i8
+    pass memfill.random-4bit
+    case memfill.random
+        for i in (range size)
+            mem @ i = ((rnd.rnd_well_next &*rnd-well*) % 256) as i8
+    case memfill.incremental-4bit
+        for i in (range size)
+            let high-nibble = (((i % 8) * 2) << 4)
+            let low-nibble = ((i % 8) * 2) + 1
+            mem @ i = (high-nibble | low-nibble) as i8
+    pass memfill.zero
+    default
+        for i in (range size)
+            mem @ i = 0:i8
     ;
-
-fn fill-palette (mem)
-
-    
 
 fn init ()
     rnd.rnd_well_seed  &*rnd-well*  0
@@ -181,12 +199,10 @@ fn init ()
                     wrap_w = SG_WRAP_REPEAT
     
     *gfx-bindings*.fs_images @ 0 = *screen-texture*
-    
-    fill-video-memory *screen-buffer*
     ;
 
 fn draw-screen ()
-    fill-video-memory *screen-buffer*
+    fill-buffer *screen-buffer* +screen-buffer-size+ memfill.random-4bit
 
     local image-content : sokol.sg_image_content
     (@ image-content.subimage 0 0) =
