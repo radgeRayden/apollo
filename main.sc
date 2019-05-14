@@ -1,37 +1,25 @@
-import .video
 import .audio
 
 include 
+    (options "-v")
     (import sokol) 
 """"#define SOKOL_NO_ENTRY
-    #define SOKOL_IMPL
     #define SOKOL_GLCORE33
+    #define SOKOL_IMPL
     #include "include/sokol/sokol_app.h"
-    #include "include/sokol/sokol_gfx.h"
-    #include "include/sokol/sokol_time.h"
     #include "include/sokol/sokol_audio.h"
-
-include 
-    (import C) 
-""""#include <stdlib.h>
-    #include <stdio.h>
 
 SCREEN-WIDTH := 640
 SCREEN-HEIGHT := 480
 
 fn game-init ()
-    sokol.sg_setup (&(local sokol.sg_desc))
-    sokol.stm_setup;
     audio.init;
-    video.init;
     ;
 
 fn game-frame ()
-    video.draw-screen; #implicit pass to default framebuffer
     ;
 
 fn game-cleanup ()
-    video.cleanup;
     audio.cleanup;
 
 fn game-event (event)
@@ -44,7 +32,7 @@ fn main(argc argv)
         frame_cb = (static-typify game-frame)
         cleanup_cb = (static-typify game-cleanup)
         event_cb = (static-typify game-event (pointer sokol.sapp_event))
-        window_title = "game!!!!"
+        window_title = "scopes version"
     (sokol.sapp_run &app_desc)
     return 0
 
@@ -61,9 +49,8 @@ compile-object "main.o"
 # change this according to your environment. #works_on_my_machine
 (C.system
     (.. "x86_64-w64-mingw32-gcc -g "
-        \ "main.o sokol.c rnd.c "
+        \ "main.o sokol.c "
         \ "-lkernel32 "
         \ "-lgdi32 "
         \ "-luser32 "
-        \ "-lole32 "
         \ "-o game.exe "))
