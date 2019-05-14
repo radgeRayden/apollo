@@ -1,4 +1,5 @@
 import .video
+import .audio
 
 include 
     (import sokol) 
@@ -7,6 +8,8 @@ include
     #define SOKOL_GLCORE33
     #include "include/sokol/sokol_app.h"
     #include "include/sokol/sokol_gfx.h"
+    #include "include/sokol/sokol_time.h"
+    #include "include/sokol/sokol_audio.h"
 
 include 
     (import C) 
@@ -18,7 +21,9 @@ SCREEN-HEIGHT := 480
 
 fn game-init ()
     sokol.sg_setup (&(local sokol.sg_desc))
-    (video.init)
+    sokol.stm_setup;
+    audio.init;
+    video.init;
     ;
 
 fn game-frame ()
@@ -27,6 +32,7 @@ fn game-frame ()
 
 fn game-cleanup ()
     video.cleanup;
+    audio.cleanup;
 
 fn game-event (event)
 
@@ -41,6 +47,8 @@ fn main(argc argv)
         window_title = "game!!!!"
     (sokol.sapp_run &app_desc)
     return 0
+
+# (main 0 0)
 
 compile-object "main.o"
     do
@@ -57,4 +65,5 @@ compile-object "main.o"
         \ "-lkernel32 "
         \ "-lgdi32 "
         \ "-luser32 "
+        \ "-lole32 "
         \ "-o game.exe "))

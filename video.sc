@@ -48,6 +48,7 @@ run-stage;
 
 include "stdio.h"
 include "stdlib.h"
+include "time.h"
 include 
     (import rnd) 
 """"#define RND_IMPLEMENTATION
@@ -86,7 +87,11 @@ fn fill-buffer (mem size method)
     switch method
     case memfill.incremental
         for i in (range size)
-            mem @ i = (i % 256) as i8
+            if size < 256
+                #can't express the whole range, so we subdivide it
+                mem @ i = (i * ((256 / size) as i32) % 256) as i8
+            else
+                mem @ i = (i % 256) as i8
     pass memfill.random-4bit
     case memfill.random
         for i in (range size)
@@ -94,7 +99,7 @@ fn fill-buffer (mem size method)
     case memfill.incremental-4bit
         for i in (range size)
             let high-nibble = (((i % 8) * 2) << 4)
-            let low-nibble = ((i % 8) * 2) + 1
+            let low-nibble = (((i % 8) * 2) + 1)
             mem @ i = (high-nibble | low-nibble) as i8
     pass memfill.zero
     default
@@ -103,7 +108,7 @@ fn fill-buffer (mem size method)
     ;
 
 fn init ()
-    rnd.rnd_well_seed  &*rnd-well*  0
+    rnd.rnd_well_seed  &*rnd-well*  ((clock) as u32)
 
     using sokol
 
@@ -228,8 +233,8 @@ fn init ()
     ;
 
 fn draw-screen ()
-    fill-buffer *screen-buffer* +screen-buffer-size+ memfill.random-4bit
-    fill-buffer  *palette-buffer*  +palette-buffer-size+  memfill.random
+    fill-buffer *screen-buffer* +screen-buffer-size+ memfill.incremental-4bit
+    # fill-buffer  *palette-buffer*  +palette-buffer-size+  memfill.random
 
     local screen-content : sokol.sg_image_content
     (@ screen-content.subimage 0 0) =
