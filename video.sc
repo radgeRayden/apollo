@@ -28,16 +28,23 @@ uniform palette : sampler2D
 out out-color : vec4
 
 fn frag-shader ()
-    local color-index : i32
-
     let screen-column = ((screen-uv.in.x * +screen-width+) as i32)
+    let color-pair-byte = ((. ((texture screen-buffer screen-uv.in) * 255) r) as i32)
 
-    if ((screen-column % 2) == 0)
-        color-index = (((. ((texture screen-buffer screen-uv.in) * 255) r) as i32) & 0x0f) # FIXME: ask ritter why the outtermost parens is needed
-    else
-        color-index = (((. ((texture screen-buffer screen-uv.in) * 255) r) as i32) >> 4)
+    let color-index =
+        if ((screen-column % 2) == 0)
+            (color-pair-byte & 0x0f)
+        else
+            (color-pair-byte >> 4)
     
-    let pcolor = (texelFetch palette (ivec2 (color-index % +palette-width+) (color-index // +palette-width+)) 0)
+    let pcolor = 
+        texelFetch 
+            palette 
+            ivec2 
+                (color-index % +palette-width+) 
+                (color-index // +palette-width+) 
+            0
+
     out-color = (vec4 pcolor.rgb 1.0)
 
 +fragment-shader-source+ := (compile-glsl 330 'fragment (typify frag-shader))
