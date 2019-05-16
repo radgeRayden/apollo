@@ -21,7 +21,7 @@ fn vertex-shader ()
     screen-uv.out = uv
     gl_Position = position
 
-+vertex-shader-source+ := (compile-glsl 'vertex (typify vertex-shader))
++vertex-shader-source+ := (compile-glsl 330 'vertex (typify vertex-shader))
 
 uniform screen-buffer : sampler2D
 uniform palette : sampler2D
@@ -40,10 +40,7 @@ fn frag-shader ()
     let pcolor = (texelFetch palette (ivec2 (color-index % +palette-width+) (color-index // +palette-width+)) 0)
     out-color = (vec4 pcolor.rgb 1.0)
 
-+fragment-shader-source+ := (compile-glsl 'fragment (typify frag-shader))
-print +fragment-shader-source+
-print +vertex-shader-source+
-
++fragment-shader-source+ := (compile-glsl 330 'fragment (typify frag-shader))
 run-stage;
 
 include "stdio.h"
@@ -76,18 +73,20 @@ global *gfx-pipeline* : sokol.sg_pipeline
 let +screen-buffer-size+ = (+screen-width+ * +screen-height+ // 2)
 let +palette-buffer-size+ = (+palette-width+ * +palette-height+ * (sizeof i32))
 
-enum memfill
-    incremental
+using import enum
+enum memfill plain
+    incremental = 0
     random
     incremental-4bit
     random-4bit
     zero
 
+
 fn fill-buffer (mem size method)
     switch method
     case memfill.incremental
         for i in (range size)
-            if size < 256
+            if (size < 256)
                 #can't express the whole range, so we subdivide it
                 mem @ i = (i * ((256 / size) as i32) % 256) as i8
             else
@@ -101,10 +100,10 @@ fn fill-buffer (mem size method)
             let high-nibble = (((i % 8) * 2) << 4)
             let low-nibble = (((i % 8) * 2) + 1)
             mem @ i = (high-nibble | low-nibble) as i8
-    pass memfill.zero
-    default
+    case memfill.zero
         for i in (range size)
             mem @ i = 0:i8
+    default ();
     ;
 
 fn init ()
